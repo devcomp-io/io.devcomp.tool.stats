@@ -4,6 +4,8 @@
   "private": true,
   "pm": "npm",
   "dependencies": {
+    "mongodb": "^1.4.19",
+    "node-statsd": "0.0.7",
     "smi.cli": "0.x"
   },
   "scripts": {
@@ -25,7 +27,14 @@
       "packagesDirectory": "node_modules"
     },
     "pio.deploy.converter": {
-  	  "name": "nodejs-server"
+      "name": "nodejs-server"
+    }
+  },
+  "config.plugin": {
+    "io.pinf.server.firewidgets": {
+      "widgets": {
+        "service": "./widgets/service/*"
+      }
     }
   }
 }
