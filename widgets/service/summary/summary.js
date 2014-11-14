@@ -7,75 +7,105 @@ define([
 	return function() {
 		var self = this;
 
+		var tagContentConfig = JSON.parse(self.tagContent);
+
+		var dataUrl = self.config.serviceBaseUri + "/io.devcomp.tool.stats/service/summary.json";
+		dataUrl += "?serviceId=" + tagContentConfig.id;
+
 		return self.hook(
 			{
 				"htm": "./" + self.widget.id + ".htm"
 			},
-			{},
+			{
+				"data": dataUrl
+			},
 			[
 				{
 					resources: [ "htm" ],
-					handler: function(_htm) {
+					streams: [ "data" ],
+					handler: function(_htm, _data) {
 
-						return self.setHTM(_htm).then(function (tag) {
+						_data.on("data", function(summary) {
 
-							function renderGraph(node, data) {
-								var width = node.width();
-								var height = node.height();
+							return self.setHTM(_htm, {
+								groups: summary
+							}).then(function (tag) {
 
-								var legendWidth = 100;
-								var plotMargin = {
-									left: 50,
-									top: 10,
-									right: 20,
-									bottom: 40
-								};
+								function renderGraph(node, data) {
 
+									// TODO: Better libraries for rendering complex stats?
+									//       * http://code.shutterstock.com/rickshaw/
+									//       * http://dc-js.github.io/dc.js/
 
-							    var svg = dimple.newSvg(node[0], width, height);
-								var myChart = new dimple.chart(svg, data);
-								myChart.setBounds(plotMargin.left, plotMargin.top, width-legendWidth-plotMargin.left-plotMargin.right, height-plotMargin.top-plotMargin.bottom);
-								var x = myChart.addCategoryAxis("x", ["Time"]);
-								myChart.addMeasureAxis("y", "Requests");
-								var s = myChart.addSeries("Event", dimple.plot.area);
-								s.lineWeight = 1;
-								s.barGap = 0.05;
-								myChart.addLegend(width-legendWidth, plotMargin.top, legendWidth, height-plotMargin.top-plotMargin.bottom, "left");
-								myChart.draw();
-							}
+									var width = node.width();
+									var height = node.height();
 
-							renderGraph($("DIV.graph", tag), [
-							    {
-							        "Time": "100",
-							        "Requests": "20",
-							        "Event": "requests.ok"
-							    },
-							    {
-							        "Time": "100",
-							        "Requests": "10",
-							        "Event": "requests.fail"
-							    },
-							    {
-							        "Time": "110",
-							        "Requests": "30",
-							        "Event": "requests.ok"
-							    },
-							    {
-							        "Time": "110",
-							        "Requests": "25",
-							        "Event": "requests.fail"        
-							    },
-							    {
-							        "Time": "120",
-							        "Requests": "60",
-							        "Event": "requests.ok"
-							    },
-							    {
-							        "Time": "120",
-							        "Requests": "45",
-							        "Event": "requests.fail"        
-							    }
-							]);
+									var legendWidth = 100;
+									var plotMargin = {
+										left: 50,
+										top: 10,
+										right: 20,
+										bottom: 40
+									};
+
+								    var svg = dimple.newSvg(node[0], width, height);
+									var myChart = new dimple.chart(svg, data);
+									myChart.setBounds(plotMargin.left, plotMargin.top, width-legendWidth-plotMargin.left-plotMargin.right, height-plotMargin.top-plotMargin.bottom);
+									var x = myChart.addCategoryAxis("x", ["Time"]);
+									x.addOrderRule("Time", true);
+									myChart.addMeasureAxis("y", "Counts");
+									var s = myChart.addSeries("Event", dimple.plot.area);									
+									s.lineWeight = 1;
+									s.barGap = 0.05;
+									myChart.addLegend(width-legendWidth, plotMargin.top, legendWidth, height-plotMargin.top-plotMargin.bottom, "left");
+									myChart.draw();
+								}
+
+								var data = {};
+
+								for (var groupId in summary) {
+
+									data[groupId] = [];
+
+									for (var metricId in summary[groupId]) {
+										if (summary[groupId][metricId].type === "counter") {
+											data[groupId] = data[groupId].concat(summary[groupId][metricId].values.map(function (value) {
+												return {
+											        "Time": value[0],
+											        "Counts": value[1],
+											        "Event": metricId
+											    };												
+											}));
+										} else
+										if (summary[groupId][metricId].type === "timer") {
+											data[groupId] = data[groupId].concat(summary[groupId][metricId].values.map(function (value) {
+												if (value[1] && value[1].length > 0) {
+													// Average the value.
+													var count = 0;
+													value[1].forEach(function (val) {
+														count += val;
+													});
+													count = Math.floor(count/value[1].length);												
+													return {
+												        "Time": value[0],
+												        "Counts": count,
+												        "Event": metricId
+												    };
+												}
+												return null;
+											}).filter(function (val) {
+												return !!val;
+											}));
+										}
+									}
+
+									data[groupId].reverse();
+								}
+
+								$("DIV.stats-graph", tag).each(function () {
+									return renderGraph($(this), data[$(this).parent().attr("groupId")]);
+								});
+							});
 						});
 					}
 				}
