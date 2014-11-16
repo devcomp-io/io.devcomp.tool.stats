@@ -4,7 +4,7 @@ const STATSD = require("node-statsd");
 
 require("io.pinf.server.www").for(module, __dirname, function(app, config, HELPERS) {
 
-
+/*
 	// Generate some dev data.
 	var client = new STATSD.StatsD({
 		host: '127.0.0.1',
@@ -23,6 +23,6 @@ require("io.pinf.server.www").for(module, __dirname, function(app, config, HELPE
 		}, Math.random() * 1000 );
 	}
 	recordRequest();
+*/
 
 });
-

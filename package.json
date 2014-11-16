@@ -5,7 +5,7 @@
   "pm": "npm",
   "dependencies": {
     "mongodb": "^1.4.19",
-    "node-statsd": "0.0.7",
+    "node-statsd": "~0.0.7",
     "smi.cli": "0.x",
     "waitfor": "^0.1.3"
   },
