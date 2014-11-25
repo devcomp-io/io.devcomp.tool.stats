@@ -31,10 +31,10 @@ function getCollectionsForService (serviceId, callback) {
 	}
 
 	return ensureDBConnection(function (err, db) {
-		if (err) return next(err);
+		if (err) return callback(err);
 
 		return db.listCollections(function(err, collections) {
-			if (err) return next(err);
+			if (err) return callback(err);
 
 			var services = {};
 
@@ -75,7 +75,7 @@ function getCollectionsForService (serviceId, callback) {
 							};
 						}
 
-						return waitfor(function (done) {
+						waitfor(function (done) {
 							return db.collection(collection.name.replace(/^statsd\./, ""), function(err, col) {
 								if (err) return done(err);
 
@@ -101,7 +101,10 @@ exports.app = function (req, res, next) {
 		var summary = {};
 
 		var waitfor = WAITFOR.serial(function (err) {
-			if (err) return next(err);
+			if (err) {
+				console.error(err.stack);
+				return next(err);
+			}
 
 			function respond(body) {
 				res.writeHead(200, {
@@ -117,11 +120,17 @@ exports.app = function (req, res, next) {
 
 		for (var groupId in service.groups) {
 
+			console.log("groupId", groupId);
+
 			summary[groupId] = {};
 
 			for (var metricId in service.groups[groupId].metrics) {
 
+				console.log("metricId", metricId);
+
 				waitfor(groupId, metricId, function (groupId, metricId, done) {
+
+					console.log("process", "groupId", groupId, "metricId", metricId);
 
 					var metric = service.groups[groupId].metrics[metricId];
 
@@ -149,7 +158,7 @@ exports.app = function (req, res, next) {
 
 							return done();
 						});
-
+ 
 					} else
 					if (metric.type === "timer") {
 
@@ -176,6 +185,34 @@ exports.app = function (req, res, next) {
 
 							return done();
 						});
+					} else
+					if (metric.type === "gauge") {
+
+						return metric.collection.find({
+							time: {
+								$gt: Math.floor(Date.now()/1000 - 60 * 5)
+							}
+						}).sort({
+							time: -1
+						}).toArray(function(err, samples) {
+							if (err) return done(err);
+							summary[groupId][metricId].values = samples.map(function(sample) {
+								if (!sample.gauge) {
+									return null;
+								}
+								return [
+									sample.time,
+									sample.gauge
+								];
+							}).filter(function (val) {
+								return !!val;
+							});
+							return done();
+						});
+
+					} else {
+						console.error("Warning: Unknown metric type", metric.type);
+						return done();
 					}
 				});
 			}

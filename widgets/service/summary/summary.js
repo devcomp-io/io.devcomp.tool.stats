@@ -96,6 +96,17 @@ define([
 											}).filter(function (val) {
 												return !!val;
 											}));
+										} else
+										if (summary[groupId][metricId].type === "gauge") {
+											data[groupId] = data[groupId].concat(summary[groupId][metricId].values.map(function (value) {
+												return {
+											        "Time": value[0],
+											        "Counts": value[1],
+											        "Event": metricId
+											    };
+											}));
+										} else {
+											console.error("Warning: metric type '" + summary[groupId][metricId].type + "' not supported!");
 										}
 									}
 
